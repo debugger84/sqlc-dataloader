@@ -1,0 +1,77 @@
+{{define "dataloader.tmpl"}}
+    {{- /*gotype:github.com/debugger84/sqlc-dataloader/internal/renderer.DataLoaderTplData*/ -}}
+    package {{.Package}}
+
+    import (
+    {{ range .Imports -}}
+        {{ .Format }}
+    {{ end -}}
+    )
+
+    type {{ .Struct.Name }}Loader struct {
+        innerLoader *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Name }}]
+        db DBTX
+    }
+
+    func New{{ .Struct.Name }}Loader(db DBTX) *{{ .Struct.Name }}Loader {
+        return &{{ .Struct.Name }}Loader{
+            db: db,
+        }
+    }
+
+    func (l *{{ .Struct.Name }}Loader) getInnerLoader() *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Name }}] {
+        if l.innerLoader == nil {
+            l.innerLoader = dataloader.NewBatchedLoader(
+                func(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) []*dataloader.Result[{{ .Struct.Name }}] {
+                    {{ lowerTitle .Struct.Name }}Map, err := l.findItemsMap(ctx, keys)
+
+                    result := make([]*dataloader.Result[{{ .Struct.Name }}], len(keys))
+                    for i, key := range keys {
+                        if err != nil {
+                            result[i] = &dataloader.Result[{{ .Struct.Name }}]{Error: err}
+                            continue
+                        }
+
+                        if {{ lowerTitle .Struct.Name }}, ok := {{ lowerTitle .Struct.Name }}Map[key]; ok {
+                            result[i] = &dataloader.Result[{{ .Struct.Name }}]{Data: {{ lowerTitle .Struct.Name }}}
+                        } else {
+                            result[i] = &dataloader.Result[{{ .Struct.Name }}]{Error: pgx.ErrNoRows}
+                        }
+                    }
+                    return result
+                },
+            )
+        }
+        return l.innerLoader
+    }
+
+
+    func (l *{{ .Struct.Name }}Loader) findItemsMap(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) (map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Name }}, error) {
+        res := make(map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Name }}, len(keys))
+
+        query := `SELECT * FROM {{ .Struct.FullTableName }} WHERE {{ .PrimaryKeyColumnName}} = ANY($1)`
+        rows, err := l.db.Query(ctx, query, keys)
+        if err != nil {
+            return nil, err
+        }
+        defer rows.Close()
+        for rows.Next() {
+            var result {{ .Struct.Name }}
+            err := rows.Scan(
+            {{ range .Struct.Fields -}}
+                &result.{{ .Name }},
+            {{ end -}}
+            )
+            if err != nil {
+                return nil, err
+            }
+            res[result.{{ .PrimaryKeyFieldName}}] = result
+        }
+        return res, nil
+    }
+
+    func (l *{{ .Struct.Name }}Loader) Load(ctx context.Context, {{ lowerTitle .Struct.Name }}Key {{ .PrimaryKeyFieldType}}) ({{ .Struct.Name }}, error) {
+        return l.getInnerLoader().Load(ctx, {{ lowerTitle .Struct.Name }}Key)()
+    }
+
+{{end}}
