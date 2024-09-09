@@ -1,6 +1,7 @@
 package gotype
 
 import (
+	"github.com/debugger84/sqlc-dataloader/internal/imports"
 	"github.com/debugger84/sqlc-dataloader/internal/opts"
 	"github.com/debugger84/sqlc-dataloader/internal/sqltype"
 	"github.com/sqlc-dev/plugin-sdk-go/plugin"
@@ -26,12 +27,107 @@ func NewPostgresqlTypeTransformer(options *opts.Options, customTypes []sqltype.C
 	}
 }
 
-func (t *PostgresqlTypeTransformer) ToGoType(col *plugin.Column) string {
+func (t *PostgresqlTypeTransformer) ToGoType(col *plugin.Column) GoType {
 	columnType := sdk.DataType(col.Type)
 	notNull := col.NotNull || col.IsArray
 	driver := t.driver
 	emitPointersForNull := driver.IsPGX() && t.emitPointersForNull
+	name := t.getTypeName(columnType, notNull, emitPointersForNull, driver)
+	if name == "interface{}" {
+		customGoType := t.getCustomGoType(col, notNull)
+		if customGoType != nil {
+			return *customGoType
+		}
+	}
 
+	resType := *NewGoType(name)
+	if resType.packageName != "" {
+		resType = t.addImport(resType, driver)
+	}
+	return resType
+}
+
+func (t *PostgresqlTypeTransformer) addImport(goType GoType, driver opts.SQLDriver) GoType {
+	if goType.PackageName() == "" {
+		return goType
+	}
+	switch goType.PackageName() {
+	case "pgtype":
+		return t.addPgTypeImports(goType, driver)
+	case "pq":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "github.com/lib/pq",
+			},
+		)
+	case "pgvector":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "github.com/pgvector/pgvector-go",
+			},
+		)
+	}
+
+	return goType
+}
+
+func (t *PostgresqlTypeTransformer) addPgTypeImports(goType GoType, driver opts.SQLDriver) GoType {
+	sqlcPgTypes := map[string]struct{}{
+		"pqtype.CIDR":           {},
+		"pqtype.Inet":           {},
+		"pqtype.Macaddr":        {},
+		"pqtype.NullRawMessage": {},
+	}
+	if _, ok := sqlcPgTypes[goType.TypeWithPackage()]; ok {
+		goType.SetImport(
+			imports.Import{
+				Path: "github.com/sqlc-dev/pqtype",
+			},
+		)
+		return goType
+	}
+	if driver == opts.SQLDriverPGXV5 {
+		goType.SetImport(
+			imports.Import{
+				Path: "github.com/jackc/pgx/v5/pgtype",
+			},
+		)
+	} else {
+		goType.SetImport(
+			imports.Import{
+				Path: "github.com/jackc/pgtype",
+			},
+		)
+	}
+
+	return goType
+}
+
+func (t *PostgresqlTypeTransformer) getCustomGoType(
+	col *plugin.Column,
+	notNull bool,
+) *GoType {
+	colSchema := col.Type.Schema
+	if colSchema == "" {
+		colSchema = t.defaultSchema
+	}
+	for _, customType := range t.customTypes {
+		if colSchema == customType.Schema && col.Type.Name == customType.SqlTypeName &&
+			notNull == !customType.IsNullable {
+			return NewGoType(customType.GoTypeName)
+		}
+	}
+
+	log.Printf("unknown PostgreSQL type: %s\n", col.Type.Name)
+	return nil
+}
+
+func (t *PostgresqlTypeTransformer) getTypeName(
+	columnType string,
+	notNull bool,
+	emitPointersForNull bool,
+	driver opts.SQLDriver,
+) string {
 	switch columnType {
 	case "serial", "serial4", "pg_catalog.serial4":
 		if notNull {
@@ -546,20 +642,6 @@ func (t *PostgresqlTypeTransformer) ToGoType(col *plugin.Column) string {
 	case "any":
 		return "interface{}"
 
-	default:
-		colSchema := col.Type.Schema
-		if colSchema == "" {
-			colSchema = t.defaultSchema
-		}
-		for _, customType := range t.customTypes {
-			if colSchema == customType.Schema && col.Type.Name == customType.SqlTypeName &&
-				notNull == !customType.IsNullable {
-				return customType.GoTypeName
-			}
-		}
 	}
-
-	log.Printf("unknown PostgreSQL type: %s\n", columnType)
-
 	return "interface{}"
 }

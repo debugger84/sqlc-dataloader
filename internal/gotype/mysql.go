@@ -18,11 +18,42 @@ func NewMysqlTypeTransformer(customTypes []sqltype.CustomType) *MysqlTypeTransfo
 	}
 }
 
-func (t *MysqlTypeTransformer) ToGoType(col *plugin.Column) string {
+func (t *MysqlTypeTransformer) ToGoType(col *plugin.Column) GoType {
 	columnType := sdk.DataType(col.Type)
 	notNull := col.NotNull || col.IsArray
 	unsigned := col.Unsigned
+	name := t.getTypeName(columnType, notNull, col, unsigned)
+	if name == "interface{}" {
+		customGoType := t.getCustomGoType(col, notNull)
+		if customGoType != nil {
+			return *customGoType
+		}
+	}
 
+	resType := *NewGoType(name)
+	return resType
+}
+
+func (t *MysqlTypeTransformer) getCustomGoType(
+	col *plugin.Column,
+	notNull bool,
+) *GoType {
+	for _, customType := range t.customTypes {
+		if col.Type.Name == customType.SqlTypeName &&
+			notNull == !customType.IsNullable {
+			return NewGoType(customType.GoTypeName)
+		}
+	}
+	log.Printf("Unknown MySQL type: %s\n", col.Type.Name)
+	return nil
+}
+
+func (t *MysqlTypeTransformer) getTypeName(
+	columnType string,
+	notNull bool,
+	col *plugin.Column,
+	unsigned bool,
+) string {
 	switch columnType {
 
 	case "varchar", "text", "char", "tinytext", "mediumtext", "longtext":
@@ -123,14 +154,7 @@ func (t *MysqlTypeTransformer) ToGoType(col *plugin.Column) string {
 		return "interface{}"
 
 	default:
-		for _, customType := range t.customTypes {
-			if col.Type.Name == customType.SqlTypeName &&
-				notNull == !customType.IsNullable {
-				return customType.GoTypeName
-			}
-		}
-		log.Printf("Unknown MySQL type: %s\n", columnType)
-		return "interface{}"
 
+		return "interface{}"
 	}
 }

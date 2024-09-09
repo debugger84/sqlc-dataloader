@@ -87,9 +87,9 @@ func (r *DataLoaderRenderer) renderDataLoader(
 		Struct:               s,
 		Package:              r.loaderPackage,
 		PrimaryKeyColumnName: pkField.DBName(),
-		PrimaryKeyFieldType:  pkField.Type(),
+		PrimaryKeyFieldType:  pkField.Type().TypeWithPackage(),
 		PrimaryKeyFieldName:  pkField.Name(),
-		Imports:              importer.Build(),
+		Imports:              importer.Add(pkField.Type().Import()).Build(),
 	}
 
 	var b bytes.Buffer

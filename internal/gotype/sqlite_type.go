@@ -23,11 +23,22 @@ func NewSqlLiteTypeTransformer(options *opts.Options, customTypes []sqltype.Cust
 	}
 }
 
-func (t *SqlLiteTypeTransformer) ToGoType(col *plugin.Column) string {
+func (t *SqlLiteTypeTransformer) ToGoType(col *plugin.Column) GoType {
 	dt := strings.ToLower(sdk.DataType(col.Type))
 	notNull := col.NotNull || col.IsArray
 	emitPointersForNull := t.emitPointersForNull
 
+	name := t.getTypeName(dt, notNull, emitPointersForNull)
+
+	resType := *NewGoType(name)
+	return resType
+}
+
+func (t *SqlLiteTypeTransformer) getTypeName(
+	dt string,
+	notNull bool,
+	emitPointersForNull bool,
+) string {
 	switch dt {
 
 	case "int", "integer", "tinyint", "smallint", "mediumint", "bigint", "unsignedbigint", "int2", "int8":

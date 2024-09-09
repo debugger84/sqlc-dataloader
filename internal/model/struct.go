@@ -92,11 +92,12 @@ func (s *Struct) initFields(
 			isPrimaryKey = true
 			s.hasPrimaryKey = true
 		}
+		goType := goTypeFormatter.ToGoType(column)
 		s.fields = append(
 			s.fields, Field{
 				name:         normalizer.NormalizeGoType(column.Name),
 				dBName:       column.Name,
-				typeName:     goTypeFormatter.ToGoType(column),
+				goType:       &goType,
 				tags:         tags,
 				comment:      column.Comment,
 				column:       column,

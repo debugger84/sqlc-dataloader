@@ -2,6 +2,7 @@ package gotype
 
 import (
 	"fmt"
+	"github.com/debugger84/sqlc-dataloader/internal/imports"
 	"github.com/debugger84/sqlc-dataloader/internal/opts"
 	"github.com/debugger84/sqlc-dataloader/internal/sqltype"
 	"strings"
@@ -10,8 +11,93 @@ import (
 	"github.com/sqlc-dev/plugin-sdk-go/sdk"
 )
 
+type GoType struct {
+	typeName    string
+	packageName string
+	typeImport  imports.Import
+	isPointer   bool
+	isArray     bool
+	arrayDims   int
+}
+
+func NewGoType(typeName string) *GoType {
+	isArray := strings.HasPrefix(typeName, "[]")
+	arrayDims := 0
+	if isArray {
+		for strings.HasPrefix(typeName, "[]") {
+			typeName = typeName[2:]
+			arrayDims++
+		}
+	}
+	isPointer := strings.HasPrefix(typeName, "*")
+	if isPointer {
+		typeName = typeName[1:]
+	}
+	parts := strings.Split(typeName, ".")
+	if len(parts) == 2 {
+		return &GoType{
+			typeName:    parts[1],
+			packageName: parts[0],
+			isPointer:   isPointer,
+			isArray:     isArray,
+		}
+	}
+	return &GoType{
+		typeName:  typeName,
+		isPointer: isPointer,
+		isArray:   isArray,
+	}
+}
+
+func (g *GoType) String() string {
+	str := g.TypeWithPackage()
+	if g.isPointer {
+		str = "*" + str
+	}
+	if g.isArray {
+		str = strings.Repeat("[]", g.arrayDims) + str
+	}
+
+	return str
+}
+
+func (g *GoType) TypeWithPackage() string {
+	str := g.typeName
+
+	if g.packageName != "" {
+		str = fmt.Sprintf("%s.%s", g.packageName, str)
+	}
+
+	return str
+}
+
+func (g *GoType) Import() imports.Import {
+	return g.typeImport
+}
+
+func (g *GoType) IsPointer() bool {
+	return g.isPointer
+}
+
+func (g *GoType) SetImport(imp imports.Import) *GoType {
+	g.typeImport = imp
+	return g
+}
+
+func (g *GoType) IsArray() bool {
+	return g.isArray
+}
+
+func (g *GoType) TypeName() string {
+	return g.typeName
+}
+
+func (g *GoType) PackageName() string {
+	return g.packageName
+}
+
 type DbTOGoTypeTransformer interface {
-	ToGoType(col *plugin.Column) string
+	ToGoType(col *plugin.Column) GoType
 }
 
 type GoTypeFormatter struct {
@@ -49,21 +135,73 @@ func NewDbTOGoTypeTransformer(
 	return typeTransformer, fmt.Errorf("unsupported sql engine %s", engine)
 }
 
-func (f *GoTypeFormatter) ToGoType(col *plugin.Column) string {
-	gotype := f.overriddenType(col)
-	if gotype == "" {
+func (f *GoTypeFormatter) ToGoType(col *plugin.Column) GoType {
+	gotype, overridden := f.overriddenType(col)
+	if !overridden {
 		gotype = f.sqlTypeTransformer.ToGoType(col)
 	}
+	if gotype.packageName != "" && gotype.typeImport.Path == "" {
+		gotype = f.addImport(gotype)
+	}
+
 	if col.IsSqlcSlice {
-		return "[]" + gotype
+		gotype.isArray = true
+		if col.IsArray {
+			gotype.arrayDims = int(col.ArrayDims)
+		}
 	}
-	if col.IsArray {
-		return strings.Repeat("[]", int(col.ArrayDims)) + gotype
-	}
+
 	return gotype
 }
 
-func (f *GoTypeFormatter) overriddenType(col *plugin.Column) string {
+func (f *GoTypeFormatter) addImport(goType GoType) GoType {
+	if goType.PackageName() == "" {
+		return goType
+	}
+	switch goType.PackageName() {
+	case "sql":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "database/sql",
+			},
+		)
+	case "uuid":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "github.com/google/uuid",
+			},
+		)
+	case "netip":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "net/netip",
+			},
+		)
+	case "time":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "time",
+			},
+		)
+	case "json":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "encoding/json",
+			},
+		)
+	case "net":
+		return *goType.SetImport(
+			imports.Import{
+				Path: "net",
+			},
+		)
+
+	}
+
+	return goType
+}
+
+func (f *GoTypeFormatter) overriddenType(col *plugin.Column) (GoType, bool) {
 	columnType := sdk.DataType(col.Type)
 	notNull := col.NotNull || col.IsArray
 
@@ -80,12 +218,22 @@ func (f *GoTypeFormatter) overriddenType(col *plugin.Column) string {
 		}
 		sameTable := override.Matches(col.Table, f.defaultSchema)
 		if oride.Column != "" && sdk.MatchString(oride.ColumnName, cname) && sameTable {
-			return oride.GoType.TypeName
+			return *NewGoType(oride.GoType.TypeName).SetImport(
+				imports.Import{
+					Path:  oride.GoType.ImportPath,
+					Alias: oride.GoType.Package,
+				},
+			), true
 		}
 		if oride.DbType != "" && oride.DbType == columnType && oride.Nullable != notNull && oride.Unsigned == col.Unsigned {
-			return oride.GoType.TypeName
+			return *NewGoType(oride.GoType.TypeName).SetImport(
+				imports.Import{
+					Path:  oride.GoType.ImportPath,
+					Alias: oride.GoType.Package,
+				},
+			), true
 		}
 	}
 
-	return ""
+	return GoType{}, false
 }
