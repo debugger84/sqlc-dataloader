@@ -97,6 +97,9 @@ func (i *ImportBuilder) clone() *ImportBuilder {
 }
 
 func (i *ImportBuilder) Add(importItem Import) *ImportBuilder {
+	if importItem.Path == "" {
+		return i
+	}
 	c := i.clone()
 	c.imports = append(c.imports, importItem)
 	return c

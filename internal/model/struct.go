@@ -70,6 +70,10 @@ func (s *Struct) FullTableName() string {
 	schema := s.table.Rel.GetSchema()
 	tableName := s.table.Rel.GetName()
 
+	if schema == "" {
+		return tableName
+	}
+
 	return fmt.Sprintf("%s.%s", schema, tableName)
 }
 
