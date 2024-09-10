@@ -20,32 +20,49 @@ type GoType struct {
 	arrayDims   int
 }
 
-func NewGoType(typeName string) *GoType {
-	isArray := strings.HasPrefix(typeName, "[]")
+// NewGoType creates a new GoType from a full type name
+// e.g. plugin.Table -> GoType{typeName: "Table", packageName: "plugin"}
+// e.g. *plugin.Table -> GoType{typeName: "Table", packageName: "plugin", isPointer: true}
+// e.g. []plugin.Table -> GoType{typeName: "Table", packageName: "plugin", isArray: true, arrayDims: 1}
+// e.g. github.com/sqlc-dev/plugin-sdk-go/plugin.Table -> GoType{typeName: "Table", packageName: "plugin", typeImport: Import{Path: "github.com/sqlc-dev/plugin-sdk-go/plugin"}}
+func NewGoType(fullTypeName string) *GoType {
+	isArray := strings.HasPrefix(fullTypeName, "[]")
 	arrayDims := 0
 	if isArray {
-		for strings.HasPrefix(typeName, "[]") {
-			typeName = typeName[2:]
+		for strings.HasPrefix(fullTypeName, "[]") {
+			fullTypeName = fullTypeName[2:]
 			arrayDims++
 		}
 	}
-	isPointer := strings.HasPrefix(typeName, "*")
+	isPointer := strings.HasPrefix(fullTypeName, "*")
 	if isPointer {
-		typeName = typeName[1:]
+		fullTypeName = fullTypeName[1:]
 	}
-	parts := strings.Split(typeName, ".")
+	parts := strings.Split(fullTypeName, ".")
 	if len(parts) == 2 {
+		pathParts := strings.Split(parts[0], "/")
+		importPath := ""
+		packageName := parts[0]
+		if len(pathParts) > 1 {
+			importPath = parts[0]
+			packageName = pathParts[len(pathParts)-1]
+		}
 		return &GoType{
 			typeName:    parts[1],
-			packageName: parts[0],
+			packageName: packageName,
 			isPointer:   isPointer,
 			isArray:     isArray,
+			arrayDims:   arrayDims,
+			typeImport: imports.Import{
+				Path: importPath,
+			},
 		}
 	}
 	return &GoType{
-		typeName:  typeName,
+		typeName:  fullTypeName,
 		isPointer: isPointer,
 		isArray:   isArray,
+		arrayDims: arrayDims,
 	}
 }
 

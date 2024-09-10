@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	gotype "github.com/debugger84/sqlc-dataloader/internal/gotype"
+	"github.com/debugger84/sqlc-dataloader/internal/imports"
 	"github.com/debugger84/sqlc-dataloader/internal/inflection"
 	"github.com/debugger84/sqlc-dataloader/internal/naming"
 	"github.com/debugger84/sqlc-dataloader/internal/opts"
@@ -16,6 +17,7 @@ type Struct struct {
 	structName    string
 	fields        []Field
 	hasPrimaryKey bool
+	goType        *gotype.GoType
 }
 
 func NewStruct(
@@ -53,7 +55,11 @@ func (s *Struct) initNames(
 		)
 	}
 
-	s.structName = normalizer.NormalizeGoType(structName)
+	structName = normalizer.NormalizeGoType(structName)
+	if options.ModelImport != "" {
+		structName = options.ModelImport + "." + structName
+	}
+	s.goType = gotype.NewGoType(structName)
 }
 
 func (s *Struct) TableName() string {
@@ -67,8 +73,20 @@ func (s *Struct) FullTableName() string {
 	return fmt.Sprintf("%s.%s", schema, tableName)
 }
 
-func (s *Struct) Name() string {
-	return s.structName
+func (s *Struct) Type() *gotype.GoType {
+	return s.goType
+}
+
+func (s *Struct) GetImports() []imports.Import {
+	if s.goType == nil {
+		return nil
+	}
+	if s.goType.Import().Path == "" {
+		return nil
+	}
+	return []imports.Import{
+		s.goType.Import(),
+	}
 }
 
 func (s *Struct) initFields(

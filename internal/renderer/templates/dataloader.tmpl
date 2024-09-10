@@ -8,34 +8,34 @@
     {{ end -}}
     )
 
-    type {{ .Struct.Name }}Loader struct {
-        innerLoader *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Name }}]
-        db DBTX
+    type {{ .Struct.Type.TypeName }}Loader struct {
+        innerLoader *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}]
+        db {{if ne .Struct.Type.PackageName "" }}{{ .Struct.Type.PackageName}}.DBTX{{ else }}DBTX{{ end }}
     }
 
-    func New{{ .Struct.Name }}Loader(db DBTX) *{{ .Struct.Name }}Loader {
-        return &{{ .Struct.Name }}Loader{
+    func New{{ .Struct.Type.TypeName }}Loader(db {{if ne .Struct.Type.PackageName "" }}{{ .Struct.Type.PackageName}}.DBTX{{ else }}DBTX{{ end }}) *{{ .Struct.Type.TypeName }}Loader {
+        return &{{ .Struct.Type.TypeName }}Loader{
             db: db,
         }
     }
 
-    func (l *{{ .Struct.Name }}Loader) getInnerLoader() *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Name }}] {
+    func (l *{{ .Struct.Type.TypeName }}Loader) getInnerLoader() *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}] {
         if l.innerLoader == nil {
             l.innerLoader = dataloader.NewBatchedLoader(
-                func(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) []*dataloader.Result[{{ .Struct.Name }}] {
-                    {{ lowerTitle .Struct.Name }}Map, err := l.findItemsMap(ctx, keys)
+                func(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) []*dataloader.Result[{{ .Struct.Type.TypeWithPackage }}] {
+                    {{ lowerTitle .Struct.Type.TypeName }}Map, err := l.findItemsMap(ctx, keys)
 
-                    result := make([]*dataloader.Result[{{ .Struct.Name }}], len(keys))
+                    result := make([]*dataloader.Result[{{ .Struct.Type.TypeWithPackage }}], len(keys))
                     for i, key := range keys {
                         if err != nil {
-                            result[i] = &dataloader.Result[{{ .Struct.Name }}]{Error: err}
+                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Error: err}
                             continue
                         }
 
-                        if {{ lowerTitle .Struct.Name }}, ok := {{ lowerTitle .Struct.Name }}Map[key]; ok {
-                            result[i] = &dataloader.Result[{{ .Struct.Name }}]{Data: {{ lowerTitle .Struct.Name }}}
+                        if loadedItem, ok := {{ lowerTitle .Struct.Type.TypeName }}Map[key]; ok {
+                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Data: loadedItem}
                         } else {
-                            result[i] = &dataloader.Result[{{ .Struct.Name }}]{Error: pgx.ErrNoRows}
+                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Error: pgx.ErrNoRows}
                         }
                     }
                     return result
@@ -46,8 +46,8 @@
     }
 
 
-    func (l *{{ .Struct.Name }}Loader) findItemsMap(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) (map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Name }}, error) {
-        res := make(map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Name }}, len(keys))
+    func (l *{{ .Struct.Type.TypeName }}Loader) findItemsMap(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) (map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, error) {
+        res := make(map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, len(keys))
 
         query := `SELECT * FROM {{ .Struct.FullTableName }} WHERE {{ .PrimaryKeyColumnName}} = ANY($1)`
         rows, err := l.db.Query(ctx, query, keys)
@@ -56,7 +56,7 @@
         }
         defer rows.Close()
         for rows.Next() {
-            var result {{ .Struct.Name }}
+            var result {{ .Struct.Type.TypeWithPackage }}
             err := rows.Scan(
             {{ range .Struct.Fields -}}
                 &result.{{ .Name }},
@@ -70,8 +70,8 @@
         return res, nil
     }
 
-    func (l *{{ .Struct.Name }}Loader) Load(ctx context.Context, {{ lowerTitle .Struct.Name }}Key {{ .PrimaryKeyFieldType}}) ({{ .Struct.Name }}, error) {
-        return l.getInnerLoader().Load(ctx, {{ lowerTitle .Struct.Name }}Key)()
+    func (l *{{ .Struct.Type.TypeName }}Loader) Load(ctx context.Context, {{ lowerTitle .Struct.Type.TypeName }}Key {{ .PrimaryKeyFieldType}}) ({{ .Struct.Type.TypeWithPackage }}, error) {
+        return l.getInnerLoader().Load(ctx, {{ lowerTitle .Struct.Type.TypeName }}Key)()
     }
 
 {{end}}

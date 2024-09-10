@@ -32,7 +32,7 @@ func BuildStructs(
 		}
 	}
 	if len(structs) > 0 {
-		sort.Slice(structs, func(i, j int) bool { return structs[i].Name() < structs[j].Name() })
+		sort.Slice(structs, func(i, j int) bool { return structs[i].Type().TypeName() < structs[j].Type().TypeName() })
 	}
 	return structs
 }

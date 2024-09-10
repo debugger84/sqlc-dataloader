@@ -6,6 +6,10 @@ import (
 	"sort"
 )
 
+type Container interface {
+	GetImports() []Import
+}
+
 type Import struct {
 	Path  string
 	Alias string
@@ -104,4 +108,13 @@ func (i *ImportBuilder) AddWithoutAlias(path string) *ImportBuilder {
 
 func (i *ImportBuilder) AddWithAlias(path, alias string) *ImportBuilder {
 	return i.Add(Import{Path: path, Alias: alias})
+}
+
+func (i *ImportBuilder) ImportContainer(container Container) *ImportBuilder {
+	c := i.clone()
+	for _, imp := range container.GetImports() {
+		c = c.Add(imp)
+	}
+
+	return c
 }

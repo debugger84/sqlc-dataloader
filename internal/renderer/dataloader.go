@@ -83,13 +83,17 @@ func (r *DataLoaderRenderer) renderDataLoader(
 			break
 		}
 	}
+
 	tctx := DataLoaderTplData{
 		Struct:               s,
 		Package:              r.loaderPackage,
 		PrimaryKeyColumnName: pkField.DBName(),
 		PrimaryKeyFieldType:  pkField.Type().TypeWithPackage(),
 		PrimaryKeyFieldName:  pkField.Name(),
-		Imports:              importer.Add(pkField.Type().Import()).Build(),
+		Imports: importer.
+			Add(pkField.Type().Import()).
+			ImportContainer(&s).
+			Build(),
 	}
 
 	var b bytes.Buffer
@@ -104,8 +108,12 @@ func (r *DataLoaderRenderer) renderDataLoader(
 		fmt.Println(b.String())
 		return nil, fmt.Errorf("source error: %w", err)
 	}
+	filename := fmt.Sprintf("%s_loader.go", strcase.ToSnake(s.Type().TypeName()))
+	if r.loaderPackage != s.Type().PackageName() {
+		filename = fmt.Sprintf("%s/%s.go", r.loaderPackage, strcase.ToSnake(s.Type().TypeName()))
+	}
 	file := &plugin.File{
-		Name:     fmt.Sprintf("%s_dataloader.go", strcase.ToSnake(s.Name())),
+		Name:     filename,
 		Contents: code,
 	}
 	return file, nil

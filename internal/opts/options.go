@@ -22,6 +22,7 @@ type Options struct {
 	SqlPackage                  string            `json:"sql_package" yaml:"sql_package"`
 	EmitPointersForNullTypes    bool              `json:"emit_pointers_for_null_types" yaml:"emit_pointers_for_null_types"`
 	PrimaryKeysColumns          []string          `json:"primary_keys_columns" yaml:"primary_keys_columns"`
+	ModelImport                 string            `json:"model_import" yaml:"model_import"`
 
 	InitialismsMap map[string]struct{} `json:"-" yaml:"-"`
 }
