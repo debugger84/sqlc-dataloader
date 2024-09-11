@@ -1,0 +1,34 @@
+{{define "loader_factory.tmpl"}}
+    {{- /*gotype:github.com/debugger84/sqlc-dataloader/internal/renderer.LoaderFactoryTplData*/ -}}
+    package {{.Package}}
+
+    {{ if .Imports}}
+        import (
+        {{ range .Imports -}}
+            {{ .Format }}
+        {{ end -}}
+        )
+    {{ end}}
+
+    type LoaderFactory struct {
+        db {{if ne .ModelPackage "" }}{{ .ModelPackage}}.DBTX{{ else }}DBTX{{ end }}
+        {{ range .Structs -}}
+            {{lowerTitle .Type.TypeName }}Loader *{{ .Type.TypeName }}Loader
+        {{ end -}}
+    }
+
+    func NewLoaderFactory(db {{if ne .ModelPackage "" }}{{ .ModelPackage}}.DBTX{{ else }}DBTX{{ end }}) *LoaderFactory {
+        return &LoaderFactory{
+            db: db,
+        }
+    }
+
+    {{ range .Structs -}}
+        func (f *LoaderFactory) {{ .Type.TypeName }}Loader() *{{ .Type.TypeName }}Loader {
+            if f.{{lowerTitle .Type.TypeName }}Loader == nil {
+                f.{{lowerTitle .Type.TypeName }}Loader = New{{ .Type.TypeName }}Loader(f.db)
+            }
+            return f.{{lowerTitle .Type.TypeName }}Loader
+        }
+    {{ end -}}
+{{end}}

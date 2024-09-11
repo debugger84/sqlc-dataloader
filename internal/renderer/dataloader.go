@@ -23,6 +23,13 @@ type DataLoaderTplData struct {
 	Imports              []imports.Import
 }
 
+type LoaderFactoryTplData struct {
+	Structs      []model.Struct
+	Package      string
+	Imports      []imports.Import
+	ModelPackage string
+}
+
 type DataLoaderRenderer struct {
 	structs       []model.Struct
 	loaderPackage string
@@ -42,6 +49,9 @@ func NewDataLoaderRenderer(
 }
 
 func (r *DataLoaderRenderer) Render() ([]*plugin.File, error) {
+	if len(r.structs) == 0 {
+		return nil, nil
+	}
 	funcMap := template.FuncMap{
 		"lowerTitle": sdk.LowerTitle,
 	}
@@ -51,24 +61,73 @@ func (r *DataLoaderRenderer) Render() ([]*plugin.File, error) {
 			ParseFS(
 				templates,
 				"templates/dataloader.tmpl",
+				"templates/loader_factory.tmpl",
 			),
 	)
 	files := make([]*plugin.File, 0)
-	importer := r.importer.
+	loaderImporter := r.importer.
 		AddSqlDriver().
 		AddWithoutAlias("context").
 		AddWithoutAlias("github.com/graph-gophers/dataloader/v7")
+
 	for _, s := range r.structs {
 		if !s.HasPrimaryKey() {
 			continue
 		}
-		file, err := r.renderDataLoader(tmpl, s, importer)
+		file, err := r.renderDataLoader(tmpl, s, loaderImporter)
 		if err != nil {
 			return nil, err
 		}
 		files = append(files, file)
 	}
+
+	factoryImporter := r.importer
+	file, err := r.renderLoaderFactory(tmpl, r.structs, factoryImporter)
+	if err != nil {
+		return nil, err
+	}
+	files = append(files, file)
+
 	return files, nil
+}
+
+func (r *DataLoaderRenderer) renderLoaderFactory(
+	tmpl *template.Template,
+	structs []model.Struct,
+	importer *imports.ImportBuilder,
+) (*plugin.File, error) {
+	s := structs[0]
+	tctx := LoaderFactoryTplData{
+		Structs:      structs,
+		Package:      r.loaderPackage,
+		ModelPackage: s.Type().PackageName(),
+		Imports: importer.
+			ImportContainer(&s).
+			Build(),
+	}
+
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	err := tmpl.ExecuteTemplate(w, "loader_factory.tmpl", &tctx)
+	w.Flush()
+	if err != nil {
+		return nil, err
+	}
+	code, err := format.Source(b.Bytes())
+	if err != nil {
+		fmt.Println(b.String())
+		return nil, fmt.Errorf("source error: %w", err)
+	}
+	filename := fmt.Sprintf("loader_factory.go")
+	if r.loaderPackage != s.Type().PackageName() {
+		filename = fmt.Sprintf("%s/%s", r.loaderPackage, filename)
+	}
+
+	file := &plugin.File{
+		Name:     filename,
+		Contents: code,
+	}
+	return file, nil
 }
 
 func (r *DataLoaderRenderer) renderDataLoader(
