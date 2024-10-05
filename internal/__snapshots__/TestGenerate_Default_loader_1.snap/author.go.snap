@@ -2,8 +2,8 @@ package dataloader
 
 import (
     "context"
+    dl "github.com/debugger84/sqlc-dataloader"
     "github.com/graph-gophers/dataloader/v7"
-    "github.com/jackc/pgx/v5"
     "github.com/jackc/pgx/v5/pgtype"
     "internal/model"
 )
@@ -43,7 +43,7 @@ func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Au
                     if loadedItem, ok := authorMap[key]; ok {
                         result[i] = &dataloader.Result[model.Author]{Data: loadedItem}
                     } else {
-                        result[i] = &dataloader.Result[model.Author]{Error: pgx.ErrNoRows}
+                        result[i] = &dataloader.Result[model.Author]{Error: dl.ErrNoRows}
                     }
                 }
                 return result
