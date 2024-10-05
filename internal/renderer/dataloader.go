@@ -47,26 +47,39 @@ func NewDataLoaderRenderer(
 	options *opts.Options,
 	importer *imports.ImportBuilder,
 ) *DataLoaderRenderer {
-	loaderStructs := make([]LoaderStruct, len(structs))
+	loaderStructs := make([]LoaderStruct, 0, len(structs))
 	defCache := opts.Cache{
 		Type: "no-cache",
 	}
-	for i, s := range structs {
+	for _, s := range structs {
 		structCache := defCache
 		loaderName := fmt.Sprintf("%sLoader", s.Type().TypeName())
 		for _, cache := range options.Cache {
-			if cache.LoaderName == loaderName &&
+			if cache.Table == s.FullTableName() &&
 				(cache.Type == "lru" || cache.Type == "memory") {
 				structCache = cache
 				break
 			}
 		}
 
-		loaderStructs[i] = LoaderStruct{
-			Struct:     s,
-			LoaderName: loaderName,
-			Cache:      structCache,
+		skip := false
+		for _, table := range options.ExcludeTables {
+			if table == s.FullTableName() {
+				skip = true
+				break
+			}
 		}
+		if skip {
+			continue
+		}
+
+		loaderStructs = append(
+			loaderStructs, LoaderStruct{
+				Struct:     s,
+				LoaderName: loaderName,
+				Cache:      structCache,
+			},
+		)
 	}
 
 	return &DataLoaderRenderer{

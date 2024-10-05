@@ -9,17 +9,17 @@ import (
 )
 
 type AuthorLoader struct {
-	innerLoader *dataloader.Loader[pgtype.UUID, model.Author]
+	innerLoader *dataloader.Loader[pgtype.Text, model.Author]
 	db          model.DBTX
-	cache       dataloader.Cache[pgtype.UUID, model.Author]
+	cache       dataloader.Cache[pgtype.Text, model.Author]
 }
 
 func NewAuthorLoader(
 	db model.DBTX,
-	cache dataloader.Cache[pgtype.UUID, model.Author],
+	cache dataloader.Cache[pgtype.Text, model.Author],
 ) *AuthorLoader {
 	if cache == nil {
-		cache = &dataloader.NoCache[pgtype.UUID, model.Author]{}
+		cache = &dataloader.NoCache[pgtype.Text, model.Author]{}
 	}
 	return &AuthorLoader{
 		db:    db,
@@ -27,10 +27,10 @@ func NewAuthorLoader(
 	}
 }
 
-func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Author] {
+func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.Text, model.Author] {
 	if l.innerLoader == nil {
 		l.innerLoader = dataloader.NewBatchedLoader(
-			func(ctx context.Context, keys []pgtype.UUID) []*dataloader.Result[model.Author] {
+			func(ctx context.Context, keys []pgtype.Text) []*dataloader.Result[model.Author] {
 				authorMap, err := l.findItemsMap(ctx, keys)
 
 				result := make([]*dataloader.Result[model.Author], len(keys))
@@ -54,10 +54,10 @@ func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Au
 	return l.innerLoader
 }
 
-func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.UUID) (map[pgtype.UUID]model.Author, error) {
-	res := make(map[pgtype.UUID]model.Author, len(keys))
+func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.Text) (map[pgtype.Text]model.Author, error) {
+	res := make(map[pgtype.Text]model.Author, len(keys))
 
-	query := `SELECT * FROM public.authors WHERE id = ANY($1)`
+	query := `SELECT * FROM public.authors WHERE name = ANY($1)`
 	rows, err := l.db.Query(ctx, query, keys)
 	if err != nil {
 		return nil, err
@@ -73,11 +73,11 @@ func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.UUID) (ma
 		if err != nil {
 			return nil, err
 		}
-		res[result.ID] = result
+		res[result.Name] = result
 	}
 	return res, nil
 }
 
-func (l *AuthorLoader) Load(ctx context.Context, authorKey pgtype.UUID) (model.Author, error) {
+func (l *AuthorLoader) Load(ctx context.Context, authorKey pgtype.Text) (model.Author, error) {
 	return l.getInnerLoader().Load(ctx, authorKey)()
 }

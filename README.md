@@ -56,8 +56,8 @@ sql:
           model_import: "sqlc-gen-test/test"
           ## Cache configuration for the dataloaders.
           cache:
-            ## Loader_name is the name of the dataloader struct.
-            loader_name: "MyEntityLoader"
+            ## The loader's table name in the format schema.tablename.
+            table: "public.test"
             ## Type is the type of the cache. Available types: memory, lru, no-cache.
             type: "lru"
             ## Ttl is the time to live for the items in cache. It is used only for lru cache.
@@ -67,6 +67,19 @@ sql:
             ttl: "1m"
             ## Size is the size of the cache in items in cache. It is used only for lru cache.
             size: 100
+          
+          ## The primary keys columns for the tables. In a format tablename.fieldname.
+          ## The dataloader will use these columns to batch the requests.
+          ## By default, the plugin will use the "id" column as the primary key.
+          primary_keys_columns:
+            - "test.test_id"
+            - "test2.code"
+          
+          ## Skipped tables. The dataloaders will not be generated for these tables.
+          ## By default, the plugin will generate the dataloaders for all tables in the database.
+          ## The name of table should be in the format schema.tablename.
+          exclude_tables:
+            - "public.test"
           
           ## All the next options should be the same as in the "golang" plugin. 
           sql_package: "pgx/v5"

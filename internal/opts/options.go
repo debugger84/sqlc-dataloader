@@ -10,8 +10,8 @@ import (
 )
 
 type Cache struct {
-	// LoaderName is the name of the loader struct the cache is created for.
-	LoaderName string `json:"loader_name" yaml:"loader_name"`
+	// Table is the name of the table of a loader.
+	Table string `json:"table" yaml:"table"`
 	// Type is the type of the cache. Available types: memory, lru, no-cache.
 	Type string `json:"type" yaml:"type"`
 	// Ttl is the time to live for the items in cache. It is used only for lru cache.
@@ -37,6 +37,7 @@ type Options struct {
 	PrimaryKeysColumns []string `json:"primary_keys_columns" yaml:"primary_keys_columns"`
 	ModelImport        string   `json:"model_import" yaml:"model_import"`
 	Cache              []Cache  `json:"cache" yaml:"cache"`
+	ExcludeTables      []string `json:"exclude_tables" yaml:"exclude_tables"`
 
 	InitialismsMap map[string]struct{} `json:"-" yaml:"-"`
 }
