@@ -1,0 +1,23 @@
+package dataloader
+
+import (
+	"internal/model"
+)
+
+type LoaderFactory struct {
+	db           model.DBTX
+	authorLoader *AuthorLoader
+}
+
+func NewLoaderFactory(db model.DBTX) *LoaderFactory {
+	return &LoaderFactory{
+		db: db,
+	}
+}
+
+func (f *LoaderFactory) AuthorLoader() *AuthorLoader {
+	if f.authorLoader == nil {
+		f.authorLoader = NewAuthorLoader(f.db, nil)
+	}
+	return f.authorLoader
+}

@@ -8,18 +8,35 @@
     {{ end -}}
     )
 
-    type {{ .Struct.Type.TypeName }}Loader struct {
+    type {{ .Struct.LoaderName }} struct {
         innerLoader *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}]
         db {{if ne .Struct.Type.PackageName "" }}{{ .Struct.Type.PackageName}}.DBTX{{ else }}DBTX{{ end }}
+        cache       dataloader.Cache[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}]
     }
 
-    func New{{ .Struct.Type.TypeName }}Loader(db {{if ne .Struct.Type.PackageName "" }}{{ .Struct.Type.PackageName}}.DBTX{{ else }}DBTX{{ end }}) *{{ .Struct.Type.TypeName }}Loader {
-        return &{{ .Struct.Type.TypeName }}Loader{
+    func New{{ .Struct.LoaderName }}(
+        db {{if ne .Struct.Type.PackageName "" }}{{ .Struct.Type.PackageName}}.DBTX{{ else }}DBTX{{ end }},
+        cache dataloader.Cache[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}],
+    ) *{{ .Struct.LoaderName }} {
+        if cache == nil {
+        {{ if eq .Struct.Cache.Type "no-cache" -}}
+            cache = &dataloader.NoCache[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}]{}
+        {{ end -}}
+        {{ if eq .Struct.Cache.Type "memory" -}}
+            cache = dataloader.NewCache[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}]()
+        {{ end -}}
+        {{ if eq .Struct.Cache.Type "lru" -}}
+            ttl, _ := time.ParseDuration("{{.Struct.Cache.Ttl}}")
+            cache = loaderCache.NewLRU[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}]({{.Struct.Cache.Size}}, ttl)
+        {{ end -}}
+        }
+        return &{{ .Struct.LoaderName }}{
             db: db,
+            cache: cache,
         }
     }
 
-    func (l *{{ .Struct.Type.TypeName }}Loader) getInnerLoader() *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}] {
+    func (l *{{ .Struct.LoaderName }}) getInnerLoader() *dataloader.Loader[{{ .PrimaryKeyFieldType}}, {{ .Struct.Type.TypeWithPackage }}] {
         if l.innerLoader == nil {
             l.innerLoader = dataloader.NewBatchedLoader(
                 func(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) []*dataloader.Result[{{ .Struct.Type.TypeWithPackage }}] {
@@ -40,13 +57,14 @@
                     }
                     return result
                 },
+                dataloader.WithCache(l.cache),
             )
         }
         return l.innerLoader
     }
 
 
-    func (l *{{ .Struct.Type.TypeName }}Loader) findItemsMap(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) (map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, error) {
+    func (l *{{ .Struct.LoaderName }}) findItemsMap(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) (map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, error) {
         res := make(map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, len(keys))
 
         query := `SELECT * FROM {{ .Struct.FullTableName }} WHERE {{ .PrimaryKeyColumnName}} = ANY($1)`
@@ -70,7 +88,7 @@
         return res, nil
     }
 
-    func (l *{{ .Struct.Type.TypeName }}Loader) Load(ctx context.Context, {{ lowerTitle .Struct.Type.TypeName }}Key {{ .PrimaryKeyFieldType}}) ({{ .Struct.Type.TypeWithPackage }}, error) {
+    func (l *{{ .Struct.LoaderName }}) Load(ctx context.Context, {{ lowerTitle .Struct.Type.TypeName }}Key {{ .PrimaryKeyFieldType}}) ({{ .Struct.Type.TypeWithPackage }}, error) {
         return l.getInnerLoader().Load(ctx, {{ lowerTitle .Struct.Type.TypeName }}Key)()
     }
 

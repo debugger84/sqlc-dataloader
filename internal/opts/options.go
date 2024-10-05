@@ -9,6 +9,18 @@ import (
 	"github.com/sqlc-dev/plugin-sdk-go/plugin"
 )
 
+type Cache struct {
+	// LoaderName is the name of the loader struct the cache is created for.
+	LoaderName string `json:"loader_name" yaml:"loader_name"`
+	// Type is the type of the cache. Available types: memory, lru, no-cache.
+	Type string `json:"type" yaml:"type"`
+	// Ttl is the time to live for the items in cache. It is used only for lru cache.
+	// Example values: "1m", "1h", "1d".
+	Ttl string `json:"ttl" yaml:"ttl"`
+	// Size is the size of the cache. It is used only for lru cache.
+	Size int `json:"size" yaml:"size"`
+}
+
 type Options struct {
 	EmitExactTableNames         bool              `json:"emit_exact_table_names,omitempty" yaml:"emit_exact_table_names"`
 	Package                     string            `json:"package" yaml:"package"`
@@ -21,8 +33,10 @@ type Options struct {
 	Initialisms                 *[]string         `json:"initialisms,omitempty" yaml:"initialisms"`
 	SqlPackage                  string            `json:"sql_package" yaml:"sql_package"`
 	EmitPointersForNullTypes    bool              `json:"emit_pointers_for_null_types" yaml:"emit_pointers_for_null_types"`
-	PrimaryKeysColumns          []string          `json:"primary_keys_columns" yaml:"primary_keys_columns"`
-	ModelImport                 string            `json:"model_import" yaml:"model_import"`
+
+	PrimaryKeysColumns []string `json:"primary_keys_columns" yaml:"primary_keys_columns"`
+	ModelImport        string   `json:"model_import" yaml:"model_import"`
+	Cache              []Cache  `json:"cache" yaml:"cache"`
 
 	InitialismsMap map[string]struct{} `json:"-" yaml:"-"`
 }

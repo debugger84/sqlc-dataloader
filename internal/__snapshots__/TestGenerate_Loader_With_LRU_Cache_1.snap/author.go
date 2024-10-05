@@ -1,0 +1,86 @@
+package dataloader
+
+import (
+	"context"
+	loaderCache "github.com/debugger84/sqlc-dataloader/cache"
+	"github.com/graph-gophers/dataloader/v7"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"internal/model"
+	"time"
+)
+
+type AuthorLoader struct {
+	innerLoader *dataloader.Loader[pgtype.UUID, model.Author]
+	db          model.DBTX
+	cache       dataloader.Cache[pgtype.UUID, model.Author]
+}
+
+func NewAuthorLoader(
+	db model.DBTX,
+	cache dataloader.Cache[pgtype.UUID, model.Author],
+) *AuthorLoader {
+	if cache == nil {
+		ttl, _ := time.ParseDuration("1m")
+		cache = loaderCache.NewLRU[pgtype.UUID, model.Author](10, ttl)
+	}
+	return &AuthorLoader{
+		db:    db,
+		cache: cache,
+	}
+}
+
+func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Author] {
+	if l.innerLoader == nil {
+		l.innerLoader = dataloader.NewBatchedLoader(
+			func(ctx context.Context, keys []pgtype.UUID) []*dataloader.Result[model.Author] {
+				authorMap, err := l.findItemsMap(ctx, keys)
+
+				result := make([]*dataloader.Result[model.Author], len(keys))
+				for i, key := range keys {
+					if err != nil {
+						result[i] = &dataloader.Result[model.Author]{Error: err}
+						continue
+					}
+
+					if loadedItem, ok := authorMap[key]; ok {
+						result[i] = &dataloader.Result[model.Author]{Data: loadedItem}
+					} else {
+						result[i] = &dataloader.Result[model.Author]{Error: pgx.ErrNoRows}
+					}
+				}
+				return result
+			},
+			dataloader.WithCache(l.cache),
+		)
+	}
+	return l.innerLoader
+}
+
+func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.UUID) (map[pgtype.UUID]model.Author, error) {
+	res := make(map[pgtype.UUID]model.Author, len(keys))
+
+	query := `SELECT * FROM public.authors WHERE id = ANY($1)`
+	rows, err := l.db.Query(ctx, query, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var result model.Author
+		err := rows.Scan(
+			&result.ID,
+			&result.Name,
+			&result.Status,
+		)
+		if err != nil {
+			return nil, err
+		}
+		res[result.ID] = result
+	}
+	return res, nil
+}
+
+func (l *AuthorLoader) Load(ctx context.Context, authorKey pgtype.UUID) (model.Author, error) {
+	return l.getInnerLoader().Load(ctx, authorKey)()
+}

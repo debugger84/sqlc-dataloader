@@ -26,7 +26,7 @@
     {{ range .Structs -}}
         func (f *LoaderFactory) {{ .Type.TypeName }}Loader() *{{ .Type.TypeName }}Loader {
             if f.{{lowerTitle .Type.TypeName }}Loader == nil {
-                f.{{lowerTitle .Type.TypeName }}Loader = New{{ .Type.TypeName }}Loader(f.db)
+                f.{{lowerTitle .Type.TypeName }}Loader = New{{ .Type.TypeName }}Loader(f.db, nil)
             }
             return f.{{lowerTitle .Type.TypeName }}Loader
         }

@@ -15,7 +15,7 @@ import (
 )
 
 type DataLoaderTplData struct {
-	Struct               model.Struct
+	Struct               LoaderStruct
 	Package              string
 	PrimaryKeyColumnName string
 	PrimaryKeyFieldType  string
@@ -24,16 +24,22 @@ type DataLoaderTplData struct {
 }
 
 type LoaderFactoryTplData struct {
-	Structs      []model.Struct
+	Structs      []LoaderStruct
 	Package      string
 	Imports      []imports.Import
 	ModelPackage string
 }
 
 type DataLoaderRenderer struct {
-	structs       []model.Struct
+	structs       []LoaderStruct
 	loaderPackage string
 	importer      *imports.ImportBuilder
+}
+
+type LoaderStruct struct {
+	model.Struct
+	LoaderName string
+	Cache      opts.Cache
 }
 
 func NewDataLoaderRenderer(
@@ -41,8 +47,30 @@ func NewDataLoaderRenderer(
 	options *opts.Options,
 	importer *imports.ImportBuilder,
 ) *DataLoaderRenderer {
+	loaderStructs := make([]LoaderStruct, len(structs))
+	defCache := opts.Cache{
+		Type: "no-cache",
+	}
+	for i, s := range structs {
+		structCache := defCache
+		loaderName := fmt.Sprintf("%sLoader", s.Type().TypeName())
+		for _, cache := range options.Cache {
+			if cache.LoaderName == loaderName &&
+				(cache.Type == "lru" || cache.Type == "memory") {
+				structCache = cache
+				break
+			}
+		}
+
+		loaderStructs[i] = LoaderStruct{
+			Struct:     s,
+			LoaderName: loaderName,
+			Cache:      structCache,
+		}
+	}
+
 	return &DataLoaderRenderer{
-		structs:       structs,
+		structs:       loaderStructs,
 		loaderPackage: options.Package,
 		importer:      importer,
 	}
@@ -93,7 +121,7 @@ func (r *DataLoaderRenderer) Render() ([]*plugin.File, error) {
 
 func (r *DataLoaderRenderer) renderLoaderFactory(
 	tmpl *template.Template,
-	structs []model.Struct,
+	structs []LoaderStruct,
 	importer *imports.ImportBuilder,
 ) (*plugin.File, error) {
 	s := structs[0]
@@ -132,7 +160,7 @@ func (r *DataLoaderRenderer) renderLoaderFactory(
 
 func (r *DataLoaderRenderer) renderDataLoader(
 	tmpl *template.Template,
-	s model.Struct,
+	s LoaderStruct,
 	importer *imports.ImportBuilder,
 ) (*plugin.File, error) {
 	var pkField model.Field
@@ -141,6 +169,11 @@ func (r *DataLoaderRenderer) renderDataLoader(
 			pkField = f
 			break
 		}
+	}
+
+	if s.Cache.Type == "lru" {
+		importer = importer.AddWithAlias("github.com/debugger84/sqlc-dataloader/cache", "loaderCache").
+			AddWithoutAlias("time")
 	}
 
 	tctx := DataLoaderTplData{
