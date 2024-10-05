@@ -52,7 +52,7 @@
                         if loadedItem, ok := {{ lowerTitle .Struct.Type.TypeName }}Map[key]; ok {
                             result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Data: loadedItem}
                         } else {
-                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Error: pgx.ErrNoRows}
+                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Error: dl.ErrNoRows}
                         }
                     }
                     return result

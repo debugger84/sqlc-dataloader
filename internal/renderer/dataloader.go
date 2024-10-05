@@ -107,7 +107,6 @@ func (r *DataLoaderRenderer) Render() ([]*plugin.File, error) {
 	)
 	files := make([]*plugin.File, 0)
 	loaderImporter := r.importer.
-		AddSqlDriver().
 		AddWithoutAlias("context").
 		AddWithoutAlias("github.com/graph-gophers/dataloader/v7")
 
@@ -185,9 +184,12 @@ func (r *DataLoaderRenderer) renderDataLoader(
 	}
 
 	if s.Cache.Type == "lru" {
-		importer = importer.AddWithAlias("github.com/debugger84/sqlc-dataloader/cache", "loaderCache").
+		importer = importer.
+			AddWithAlias("github.com/debugger84/sqlc-dataloader/cache", "loaderCache").
 			AddWithoutAlias("time")
 	}
+
+	importer = importer.AddWithAlias("github.com/debugger84/sqlc-dataloader", "dl")
 
 	tctx := DataLoaderTplData{
 		Struct:               s,

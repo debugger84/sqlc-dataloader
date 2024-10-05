@@ -24,6 +24,7 @@ type CustomType struct {
 func NewCustomTypes(
 	schemas []*plugin.Schema,
 	options *opts.Options,
+	destPackage string,
 ) []CustomType {
 	normalizer := naming.NewNameNormalizer(options)
 	driver := options.Driver()
@@ -34,16 +35,22 @@ func NewCustomTypes(
 		}
 
 		for _, enum := range schema.Enums {
-			baseName := normalizer.NormalizeSqlName(schema.Name, enum.Name)
+			sqlName := normalizer.NormalizeSqlName(schema.Name, enum.Name)
+			name := normalizer.NormalizeGoType(sqlName)
+			nullName := "Null" + name
+			if destPackage != "" {
+				name = destPackage + "." + name
+				nullName = destPackage + "." + nullName
+			}
 			customTypes = append(
 				customTypes, CustomType{
-					GoTypeName:  "Null" + normalizer.NormalizeGoType(baseName),
+					GoTypeName:  nullName,
 					SqlTypeName: enum.Name,
 					Schema:      schema.Name,
 					Kind:        EnumType,
 					IsNullable:  true,
 				}, CustomType{
-					GoTypeName:  normalizer.NormalizeGoType(baseName),
+					GoTypeName:  name,
 					SqlTypeName: enum.Name,
 					Schema:      schema.Name,
 					Kind:        EnumType,

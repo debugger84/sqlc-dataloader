@@ -3,26 +3,22 @@ package dataloader
 import (
     "context"
     dl "github.com/debugger84/sqlc-dataloader"
-    loaderCache "github.com/debugger84/sqlc-dataloader/cache"
     "github.com/graph-gophers/dataloader/v7"
-    "github.com/jackc/pgx/v5/pgtype"
     "internal/model"
-    "time"
 )
 
 type AuthorLoader struct {
-    innerLoader *dataloader.Loader[pgtype.UUID, model.Author]
+    innerLoader *dataloader.Loader[model.Status, model.Author]
     db          model.DBTX
-    cache       dataloader.Cache[pgtype.UUID, model.Author]
+    cache       dataloader.Cache[model.Status, model.Author]
 }
 
 func NewAuthorLoader(
     db model.DBTX,
-    cache dataloader.Cache[pgtype.UUID, model.Author],
+    cache dataloader.Cache[model.Status, model.Author],
 ) *AuthorLoader {
     if cache == nil {
-        ttl, _ := time.ParseDuration("1m")
-        cache = loaderCache.NewLRU[pgtype.UUID, model.Author](10, ttl)
+        cache = &dataloader.NoCache[model.Status, model.Author]{}
     }
     return &AuthorLoader{
         db:    db,
@@ -30,10 +26,10 @@ func NewAuthorLoader(
     }
 }
 
-func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Author] {
+func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[model.Status, model.Author] {
     if l.innerLoader == nil {
         l.innerLoader = dataloader.NewBatchedLoader(
-            func(ctx context.Context, keys []pgtype.UUID) []*dataloader.Result[model.Author] {
+            func(ctx context.Context, keys []model.Status) []*dataloader.Result[model.Author] {
                 authorMap, err := l.findItemsMap(ctx, keys)
 
                 result := make([]*dataloader.Result[model.Author], len(keys))
@@ -57,10 +53,10 @@ func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Au
     return l.innerLoader
 }
 
-func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.UUID) (map[pgtype.UUID]model.Author, error) {
-    res := make(map[pgtype.UUID]model.Author, len(keys))
+func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []model.Status) (map[model.Status]model.Author, error) {
+    res := make(map[model.Status]model.Author, len(keys))
 
-    query := `SELECT * FROM public.authors WHERE id = ANY($1)`
+    query := `SELECT * FROM public.authors WHERE status = ANY($1)`
     rows, err := l.db.Query(ctx, query, keys)
     if err != nil {
         return nil, err
@@ -76,11 +72,11 @@ func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.UUID) (ma
         if err != nil {
             return nil, err
         }
-        res[result.ID] = result
+        res[result.Status] = result
     }
     return res, nil
 }
 
-func (l *AuthorLoader) Load(ctx context.Context, authorKey pgtype.UUID) (model.Author, error) {
+func (l *AuthorLoader) Load(ctx context.Context, authorKey model.Status) (model.Author, error) {
     return l.getInnerLoader().Load(ctx, authorKey)()
 }

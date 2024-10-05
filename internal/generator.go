@@ -8,6 +8,7 @@ import (
 	"github.com/debugger84/sqlc-dataloader/internal/renderer"
 	"github.com/debugger84/sqlc-dataloader/internal/sqltype"
 	"github.com/sqlc-dev/plugin-sdk-go/plugin"
+	"strings"
 )
 
 func Generate(ctx context.Context, req *plugin.GenerateRequest) (*plugin.GenerateResponse, error) {
@@ -23,7 +24,12 @@ func Generate(ctx context.Context, req *plugin.GenerateRequest) (*plugin.Generat
 	if options.DefaultSchema != "" {
 		req.Catalog.DefaultSchema = options.DefaultSchema
 	}
-	customTypes := sqltype.NewCustomTypes(req.Catalog.Schemas, options)
+	modelPkg := ""
+	if options.ModelImport != "" {
+		pkgParts := strings.Split(options.ModelImport, "/")
+		modelPkg = pkgParts[len(pkgParts)-1]
+	}
+	customTypes := sqltype.NewCustomTypes(req.Catalog.Schemas, options, modelPkg)
 	structs := model.BuildStructs(req, options, customTypes)
 
 	importer := imports.NewImportBuilder(options)
