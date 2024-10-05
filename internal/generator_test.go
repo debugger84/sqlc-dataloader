@@ -28,9 +28,11 @@ func TestGenerate(t *testing.T) {
 			t.Log("	And the response should contain the generated code")
 			require.NotNil(t, resp)
 			require.Len(t, resp.Files, 2)
-			snaps.WithConfig(snaps.Ext("/"+strings.Split(resp.Files[0].Name, "/")[1])).
+			fn1 := strings.Split(resp.Files[0].Name, "/")[1] + ".snap"
+			fn2 := strings.Split(resp.Files[1].Name, "/")[1] + ".snap"
+			snaps.WithConfig(snaps.Ext("/"+fn1)).
 				MatchStandaloneSnapshot(t, string(resp.Files[0].Contents))
-			snaps.WithConfig(snaps.Ext("/"+strings.Split(resp.Files[1].Name, "/")[1])).
+			snaps.WithConfig(snaps.Ext("/"+fn2)).
 				MatchStandaloneSnapshot(t, string(resp.Files[1].Contents))
 		},
 	)
@@ -57,9 +59,11 @@ func TestGenerate(t *testing.T) {
 			t.Log("	And the response should contain the generated code")
 			require.NotNil(t, resp)
 			require.Len(t, resp.Files, 2)
-			snaps.WithConfig(snaps.Ext("/"+strings.Split(resp.Files[0].Name, "/")[1])).
+			fn1 := strings.Split(resp.Files[0].Name, "/")[1] + ".snap"
+			fn2 := strings.Split(resp.Files[1].Name, "/")[1] + ".snap"
+			snaps.WithConfig(snaps.Ext("/"+fn1)).
 				MatchStandaloneSnapshot(t, string(resp.Files[0].Contents))
-			snaps.WithConfig(snaps.Ext("/"+strings.Split(resp.Files[1].Name, "/")[1])).
+			snaps.WithConfig(snaps.Ext("/"+fn2)).
 				MatchStandaloneSnapshot(t, string(resp.Files[1].Contents))
 		},
 	)
@@ -79,9 +83,11 @@ func TestGenerate(t *testing.T) {
 			t.Log("	And the response should contain the generated code")
 			require.NotNil(t, resp)
 			require.Len(t, resp.Files, 2)
-			snaps.WithConfig(snaps.Ext("/"+strings.Split(resp.Files[0].Name, "/")[1])).
+			fn1 := strings.Split(resp.Files[0].Name, "/")[1] + ".snap"
+			fn2 := strings.Split(resp.Files[1].Name, "/")[1] + ".snap"
+			snaps.WithConfig(snaps.Ext("/"+fn1)).
 				MatchStandaloneSnapshot(t, string(resp.Files[0].Contents))
-			snaps.WithConfig(snaps.Ext("/"+strings.Split(resp.Files[1].Name, "/")[1])).
+			snaps.WithConfig(snaps.Ext("/"+fn2)).
 				MatchStandaloneSnapshot(t, string(resp.Files[1].Contents))
 		},
 	)
