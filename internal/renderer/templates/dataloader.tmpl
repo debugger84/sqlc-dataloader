@@ -45,14 +45,14 @@
                     result := make([]*dataloader.Result[{{ .Struct.Type.TypeWithPackage }}], len(keys))
                     for i, key := range keys {
                         if err != nil {
-                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Error: err}
+                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Data: {{ .Struct.Type.TypeWithPackage }}{}, Error: err}
                             continue
                         }
 
                         if loadedItem, ok := {{ lowerTitle .Struct.Type.TypeName }}Map[key]; ok {
                             result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Data: loadedItem}
                         } else {
-                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Error: dl.ErrNoRows}
+                            result[i] = &dataloader.Result[{{ .Struct.Type.TypeWithPackage }}]{Data: {{ .Struct.Type.TypeWithPackage }}{}, Error: dl.ErrNoRows}
                         }
                     }
                     return result
