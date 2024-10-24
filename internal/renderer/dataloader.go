@@ -11,6 +11,7 @@ import (
 	"github.com/sqlc-dev/plugin-sdk-go/plugin"
 	"github.com/sqlc-dev/plugin-sdk-go/sdk"
 	"go/format"
+	"strings"
 	"text/template"
 )
 
@@ -40,6 +41,14 @@ type LoaderStruct struct {
 	model.Struct
 	LoaderName string
 	Cache      opts.Cache
+}
+
+func (s *LoaderStruct) SqlFieldNamesString() string {
+	var fields []string
+	for _, f := range s.Fields() {
+		fields = append(fields, f.DBName())
+	}
+	return strings.Join(fields, ", ")
 }
 
 func NewDataLoaderRenderer(
