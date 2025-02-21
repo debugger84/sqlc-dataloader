@@ -67,7 +67,7 @@
     func (l *{{ .Struct.LoaderName }}) findItemsMap(ctx context.Context, keys []{{ .PrimaryKeyFieldType}}) (map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, error) {
         res := make(map[{{ .PrimaryKeyFieldType}}]{{ .Struct.Type.TypeWithPackage }}, len(keys))
 
-        query := `SELECT {{ .Struct.SqlFieldNamesString }} FROM {{ .Struct.FullTableName }} WHERE {{ .PrimaryKeyColumnName}} = ANY($1)`
+        query := `SELECT {{ .Struct.SqlFieldNamesString }} FROM {{ .Struct.EscapedFullTableName }} WHERE {{ .PrimaryKeyColumnName}} = ANY($1)`
         rows, err := l.db.Query(ctx, query, keys)
         if err != nil {
             return nil, err

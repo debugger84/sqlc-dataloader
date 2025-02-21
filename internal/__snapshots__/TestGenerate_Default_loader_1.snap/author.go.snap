@@ -57,7 +57,7 @@ func (l *AuthorLoader) getInnerLoader() *dataloader.Loader[pgtype.UUID, model.Au
 func (l *AuthorLoader) findItemsMap(ctx context.Context, keys []pgtype.UUID) (map[pgtype.UUID]model.Author, error) {
     res := make(map[pgtype.UUID]model.Author, len(keys))
 
-    query := `SELECT id, name, status FROM public.authors WHERE id = ANY($1)`
+    query := `SELECT id, name, status FROM "public"."authors" WHERE id = ANY($1)`
     rows, err := l.db.Query(ctx, query, keys)
     if err != nil {
         return nil, err

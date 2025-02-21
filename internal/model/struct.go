@@ -77,6 +77,17 @@ func (s *Struct) FullTableName() string {
 	return fmt.Sprintf("%s.%s", schema, tableName)
 }
 
+func (s *Struct) EscapedFullTableName() string {
+	schema := s.table.Rel.GetSchema()
+	tableName := s.table.Rel.GetName()
+
+	if schema == "" {
+		return tableName
+	}
+
+	return fmt.Sprintf("\"%s\".\"%s\"", schema, tableName)
+}
+
 func (s *Struct) Type() *gotype.GoType {
 	return s.goType
 }
