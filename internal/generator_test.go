@@ -38,6 +38,30 @@ func TestGenerate(t *testing.T) {
 	)
 
 	t.Run(
+		"Default loader with github model import", func(t *testing.T) {
+			factory := NewGenReqFactory()
+			factory.options.ModelImport = "github.com/yourorg/yourrepo/models"
+			req := factory.GenerateRequest()
+
+			resp, err := golang.Generate(ctx, req)
+
+			t.Log("Given the 'select * from authors' SQL query is passed to the generator")
+			t.Log("When the generator is called")
+			t.Log("	Then the generator should return a response without an error")
+			require.NoError(t, err)
+			t.Log("	And the response should contain the generated code")
+			require.NotNil(t, resp)
+			require.Len(t, resp.Files, 2)
+			fn1 := strings.Split(resp.Files[0].Name, "/")[1] + ".snap"
+			fn2 := strings.Split(resp.Files[1].Name, "/")[1] + ".snap"
+			snaps.WithConfig(snaps.Ext("/"+fn1)).
+				MatchStandaloneSnapshot(t, string(resp.Files[0].Contents))
+			snaps.WithConfig(snaps.Ext("/"+fn2)).
+				MatchStandaloneSnapshot(t, string(resp.Files[1].Contents))
+		},
+	)
+
+	t.Run(
 		"Loader With LRU Cache", func(t *testing.T) {
 			factory := NewGenReqFactory()
 			factory.options.Cache = []opts.Cache{

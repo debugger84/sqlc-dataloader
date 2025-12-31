@@ -1,0 +1,23 @@
+package dataloader
+
+import (
+    "github.com/yourorg/yourrepo/models"
+)
+
+type LoaderFactory struct {
+    db           models.DBTX
+    authorLoader *AuthorLoader
+}
+
+func NewLoaderFactory(db models.DBTX) *LoaderFactory {
+    return &LoaderFactory{
+        db: db,
+    }
+}
+
+func (f *LoaderFactory) AuthorLoader() *AuthorLoader {
+    if f.authorLoader == nil {
+        f.authorLoader = NewAuthorLoader(f.db, nil)
+    }
+    return f.authorLoader
+}
